@@ -41,7 +41,8 @@ export function useRoom() {
         }
       ],
       topics: [],
-      shuffledTopics: []
+      shuffledTopics: [],
+      reactions: []
     }
     
     room.members.forEach(m => m.roomId = room.id)

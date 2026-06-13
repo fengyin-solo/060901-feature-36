@@ -4,9 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { useRoom } from '@/composables/useRoom'
 import { useGame } from '@/composables/useGame'
 import { useExpire } from '@/composables/useExpire'
+import { useReaction } from '@/composables/useReaction'
 import FlipCard from '@/components/FlipCard.vue'
 import MemberAvatar from '@/components/MemberAvatar.vue'
 import type { Topic } from '@/types'
+import { ATMOSPHERE_LABELS, type AtmosphereTag } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +27,9 @@ const {
   closeTruthOrDare
 } = useGame()
 const { isRoomExpired } = useExpire()
+const { selectedTags, toggleTag, recordReactions } = useReaction()
+
+const atmosphereOptions = Object.entries(ATMOSPHERE_LABELS) as [AtmosphereTag, string][]
 
 const roomId = computed(() => route.params.id as string)
 const showEndConfirm = ref(false)
@@ -105,6 +110,9 @@ const goBack = () => {
 }
 
 const handleChoice = (choice: 'talk' | 'truth' | 'dare') => {
+  if (currentTopic.value && selectedTags.value.length > 0) {
+    recordReactions(roomId.value, currentTopic.value.id, currentPlayer.value || '匿名')
+  }
   closeTruthOrDare()
   if (choice === 'dare') {
     alert('大胆去做吧！记得拍视频留证据 📸')
@@ -269,9 +277,26 @@ const handleChoice = (choice: 'talk' | 'truth' | 'dare') => {
         <h3 class="text-xl font-bold text-gray-800 mb-2">
           轮到 {{ currentPlayer }} 啦！
         </h3>
-        <p class="text-gray-600 mb-6">
+        <p class="text-gray-600 mb-4">
           翻到了：<span class="font-medium">{{ currentTopic.content }}</span>
         </p>
+
+        <div class="mb-5">
+          <p class="text-sm text-gray-500 mb-2">🏷️ 现场气氛</p>
+          <div class="flex flex-wrap justify-center gap-2">
+            <button
+              v-for="[tag, label] in atmosphereOptions"
+              :key="tag"
+              class="px-3 py-1.5 rounded-full text-sm font-medium transition-all border-2"
+              :class="selectedTags.includes(tag)
+                ? 'border-purple-500 bg-purple-50 text-purple-700'
+                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'"
+              @click="toggleTag(tag)"
+            >
+              {{ label }}
+            </button>
+          </div>
+        </div>
         
         <p class="text-sm text-gray-500 mb-4">请选择：</p>
         

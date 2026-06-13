@@ -9,6 +9,7 @@ export interface Room {
   members: Member[]
   topics: Topic[]
   shuffledTopics: string[]
+  reactions: Reaction[]
 }
 
 export interface Topic {
@@ -57,6 +58,24 @@ export const TOPIC_EMOJIS: Record<TopicType, string> = {
   recommend: '💡',
   deep: '🤔',
   silly: '🤪'
+}
+
+export type AtmosphereTag = 'hilarious' | 'shocked' | 'warm' | 'awkward' | 'deep' | 'chaotic'
+
+export const ATMOSPHERE_LABELS: Record<AtmosphereTag, string> = {
+  hilarious: '🤣 爆笑',
+  shocked: '😱 震惊',
+  warm: '🥰 温馨',
+  awkward: '😅 尴尬',
+  deep: '🧠 深度',
+  chaotic: '🔥 抓马'
+}
+
+export interface Reaction {
+  topicId: string
+  tag: AtmosphereTag
+  recorder: string
+  createdAt: string
 }
 
 export const AVATAR_EMOJIS = [

@@ -3,9 +3,10 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRoom } from '@/composables/useRoom'
 import { useExpire } from '@/composables/useExpire'
+import { useReaction } from '@/composables/useReaction'
 import { allTopics, getRandomQuestion } from '@/topics'
-import type { Topic, TopicType, TopicTemplate } from '@/types'
-import { TOPIC_COLORS, TOPIC_EMOJIS } from '@/types'
+import type { Topic, TopicType, TopicTemplate, AtmosphereTag } from '@/types'
+import { TOPIC_COLORS, TOPIC_EMOJIS, ATMOSPHERE_LABELS } from '@/types'
 import TopicCard from '@/components/TopicCard.vue'
 import MemberAvatar from '@/components/MemberAvatar.vue'
 import { copyToClipboard, getDaysRemaining } from '@/utils/helpers'
@@ -14,6 +15,7 @@ const route = useRoute()
 const router = useRouter()
 const { loadRoom, currentRoom, addTopic, removeTopic, startGame, error, loadRooms } = useRoom()
 const { isRoomExpired, getExpirationWarning } = useExpire()
+const { getTagCountsByType, getReactionsForTopic } = useReaction()
 
 const topicContent = ref('')
 const selectedType = ref<TopicType>('trouble')
@@ -40,6 +42,34 @@ const canStartGame = computed(() =>
 const expirationWarning = computed(() => 
   currentRoom.value ? getExpirationWarning(currentRoom.value.expiresAt) : null
 )
+
+const tagCountsByType = computed(() => {
+  if (!currentRoom.value || currentRoom.value.status !== 'ended') return null
+  return getTagCountsByType(roomId.value)
+})
+
+const topicTypesWithReactions = computed(() => {
+  if (!tagCountsByType.value) return []
+  return (Object.entries(tagCountsByType.value) as [TopicType, Record<AtmosphereTag, number>][])
+    .filter(([, counts]) => Object.keys(counts).length > 0)
+    .map(([type, counts]) => ({
+      type,
+      emoji: TOPIC_EMOJIS[type],
+      color: TOPIC_COLORS[type],
+      tags: (Object.entries(counts) as [AtmosphereTag, number][])
+        .sort((a, b) => b[1] - a[1])
+        .map(([tag, count]) => ({
+          tag,
+          label: ATMOSPHERE_LABELS[tag],
+          count
+        }))
+    }))
+})
+
+const getTopicReactions = (topicId: string) => {
+  if (!currentRoom.value) return []
+  return getReactionsForTopic(roomId.value, topicId)
+}
 
 onMounted(() => {
   loadRooms()
@@ -240,6 +270,44 @@ const goToGame = () => {
         </div>
       </div>
 
+      <div v-if="currentRoom.status === 'ended' && topicTypesWithReactions.length > 0" class="mb-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span>🏷️</span> 气氛回顾
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div 
+            v-for="group in topicTypesWithReactions" 
+            :key="group.type"
+            class="bg-white rounded-2xl p-5 shadow-md"
+          >
+            <div class="flex items-center gap-2 mb-3">
+              <span 
+                class="w-3 h-3 rounded-full"
+                :style="{ backgroundColor: group.color }"
+              ></span>
+              <span class="font-bold text-gray-800">
+                {{ group.emoji }} {{ group.type }}
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <span 
+                v-for="tagInfo in group.tags" 
+                :key="tagInfo.tag"
+                class="px-3 py-1.5 rounded-full text-sm font-medium"
+                :style="{ 
+                  backgroundColor: group.color + '20', 
+                  color: group.color,
+                  border: '1px solid ' + group.color + '40'
+                }"
+              >
+                {{ tagInfo.label }}
+                <span class="ml-1 opacity-70">×{{ tagInfo.count }}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div v-if="unflippedTopics.length > 0" class="mb-6">
         <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
           <span>📥</span> 待聊话题 ({{ unflippedTopics.length }})
@@ -250,6 +318,7 @@ const goToGame = () => {
             :key="topic.id"
             :topic="topic"
             :can-delete="currentRoom.status === 'preparing'"
+            :reactions="getTopicReactions(topic.id)"
             @delete="handleDeleteTopic(topic.id)"
           />
         </div>
@@ -264,6 +333,7 @@ const goToGame = () => {
             v-for="topic in flippedTopics" 
             :key="topic.id"
             :topic="topic"
+            :reactions="getTopicReactions(topic.id)"
           />
         </div>
       </div>

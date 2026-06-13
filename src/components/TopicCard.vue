@@ -1,16 +1,29 @@
 <script setup lang="ts">
-import type { Topic } from '@/types'
-import { TOPIC_EMOJIS } from '@/types'
+import { computed } from 'vue'
+import type { Topic, Reaction } from '@/types'
+import { TOPIC_EMOJIS, ATMOSPHERE_LABELS } from '@/types'
 import { formatDate } from '@/utils/helpers'
 
-defineProps<{
+const props = defineProps<{
   topic: Topic
   canDelete?: boolean
+  reactions?: Reaction[]
 }>()
 
 const emit = defineEmits<{
   (e: 'delete'): void
 }>()
+
+const topicReactions = computed(() => {
+  if (!props.reactions || props.reactions.length === 0) return []
+  const tagCounts: Record<string, number> = {}
+  for (const r of props.reactions) {
+    tagCounts[r.tag] = (tagCounts[r.tag] || 0) + 1
+  }
+  return Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([tag, count]) => ({ tag: tag as keyof typeof ATMOSPHERE_LABELS, label: ATMOSPHERE_LABELS[tag as keyof typeof ATMOSPHERE_LABELS], count }))
+})
 </script>
 
 <template>
@@ -50,6 +63,20 @@ const emit = defineEmits<{
           {{ topic.isAnonymous ? '🎭 匿名' : `👤 ${topic.author}` }}
         </span>
         <span>{{ formatDate(topic.createdAt) }}</span>
+      </div>
+
+      <div v-if="topicReactions.length > 0" class="flex flex-wrap gap-1.5 mt-3">
+        <span 
+          v-for="r in topicReactions" 
+          :key="r.tag"
+          class="px-2 py-0.5 rounded-full text-xs font-medium"
+          :style="{ 
+            backgroundColor: topic.color + '18', 
+            color: topic.color 
+          }"
+        >
+          {{ r.label }}
+        </span>
       </div>
       
       <div 
